@@ -28,4 +28,6 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('api/ads/', include('ads.urls')),
     path('api/device/', include('devices.urls')),
+    path('api/user/', include('users.urls')),
+    path('api/play-log/', include('analytics.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

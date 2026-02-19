@@ -1,5 +1,8 @@
 from django.http import JsonResponse
 from django.shortcuts import render
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 from users.models import User
 from users.serializer import UserSerializer
@@ -7,30 +10,35 @@ from users.serializer import UserSerializer
 
 # Create your views here.
 def signup(request):
-
     email = request.POST['email']
     password = request.POST['password']
     if email:
         return JsonResponse({
-            "message":"Please enter your email address",
-            "success":False,
+            "message": "Please enter your email address",
+            "success": False,
         })
     user = User.objects.filter(email=email)
     if user:
-        User.objects.create_user(email,password)
+        User.objects.create_user(email, password)
         return JsonResponse({
             "message": "Successfully created user",
-            "success":True,
+            "success": True,
         })
     else:
         return JsonResponse({
             "message": "Something went wrong",
         })
 
+
 def profile(request):
     user = request.user
     return JsonResponse({
-        "user":UserSerializer(user).data,
+        "user": UserSerializer(user).data,
     })
 
 
+@api_view(['GET'])
+def get_profile(request):
+    user = request.user
+    serializer = UserSerializer(user)
+    return Response(serializer.data, status=status.HTTP_200_OK)
