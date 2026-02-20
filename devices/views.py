@@ -1,14 +1,19 @@
+from datetime import datetime
+
 from django.shortcuts import render
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from ads.models import Ad
 from ads.serializers import AdSerializer
 from analytics.models import PlayLog
+from analytics.serializers import PlayLogSerializer
 from devices.helper import create_device_access_token, create_device_refresh_token
 from devices.models import Device
 from devices.serializers import DeviceSerializer
+from users.models import User
 
 
 # Create your views here.
@@ -16,7 +21,10 @@ from devices.serializers import DeviceSerializer
 def create_device(request):
     serializer = DeviceSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
+        device = serializer.save()
+        user = User(username=device.device_id)
+        user.set_password(device.secret_key)
+        user.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -47,13 +55,23 @@ def get_device(request, device_id):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+def get_me(request):
+    device_user = request.user
+    device = Device.objects.filter(device_id=device_user.username).first()
+    serializer = DeviceSerializer(device)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 @api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
 def device_login(request):
     data = request.data
     device_id = data.get('device_id')
     device_secret = data.get('device_secret')
     if device_id and device_secret:
-        device = Device.objects.filter(device_id=device_id, device_secret=device_secret).first()
+        device = Device.objects.filter(device_id=device_id, secret_key=device_secret).first()
         if device:
             access_token = create_device_access_token(device)
             refresh_token = create_device_refresh_token(device)
@@ -90,14 +108,15 @@ def get_next_ad_to_play(request, device_id):
         playlog = PlayLog.objects.order_by('-id').first()
         if playlog:
             try:
-                playing_ad_position = device_object.assigned_ads.index(playlog.ad.id)
-                ad = Ad.objects.get(
-                    id=device_object.assigned_ads.all()[(playing_ad_position + 1) % device_object.assigned_ads.count()])
+                playing_ad_position = [ad.id for ad in device_object.assigned_ads.all()].index(playlog.ad.id)
+                # ad = Ad.objects.get(
+                #     id=device_object.assigned_ads.all()[(playing_ad_position + 1) % device_object.assigned_ads.count()])
+                ad = device_object.assigned_ads.all()[(playing_ad_position + 1) % device_object.assigned_ads.count()]
                 serializer = AdSerializer(ad)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except ValueError:
-                ad = Ad.objects.get(id=device_object.assigned_ads.all()[0])
-                serializer = AdSerializer(ad)
+                # ad = Ad.objects.get(id=device_object.assigned_ads.all()[0])
+                serializer = AdSerializer(device_object.assigned_ads.first())
                 return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             # ad = Ad.objects.get(id=device_object.assigned_ads.all()[0])
@@ -106,3 +125,34 @@ def get_next_ad_to_play(request, device_id):
 
     else:
         Response({"message": "Device Id and Device secret is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def add_in_queue(request, device_id):
+    serializer = PlayLogSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def updated_playing_status(request, device_id):
+    data = request.data
+    playlog_id = data.get('id')
+    if playlog_id:
+        playlog = PlayLog.objects.get(id=playlog_id)
+        serializer = PlayLogSerializer(playlog, data=data, partial=True)
+        if serializer.is_valid():
+            if data.get('status') == 'Started':
+                serializer.save(updated_at=datetime.now(), started_at=datetime.now())
+            elif data.get('status') == 'Completed':
+                serializer.save(updated_at=datetime.now(), finished_at=datetime.now())
+            else:
+                serializer.save(updated_at=datetime.now())
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"message": "Enter valid playlog id!"}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response({"message": "Playlog id is required!"}, status=status.HTTP_400_BAD_REQUEST)
