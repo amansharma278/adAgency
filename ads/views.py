@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import FileUploadParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
+from tinytag import TinyTag
 
 from ads.models import AdVideo, Ad
 from ads.serializers import AdVideoSerializer, AdSerializer
@@ -25,7 +26,13 @@ def upload_video(request):
 def create_ad(request):
     serializer = AdSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save(created_by=request.user)
+        model = serializer.save(created_by=request.user)
+        try:
+            tag = TinyTag.get(model.video.video.path)
+            model.duration = int(tag.duration)
+            model.save()
+        except Exception as e:
+            print(e)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
