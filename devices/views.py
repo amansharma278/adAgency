@@ -156,3 +156,15 @@ def updated_playing_status(request, device_id):
             return Response({"message": "Enter valid playlog id!"}, status=status.HTTP_400_BAD_REQUEST)
     else:
         return Response({"message": "Playlog id is required!"}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+def delete_device(request, id):
+    device_object = Device.objects.filter(id=id).first()
+
+    if device_object:
+        user = User.objects.filter(username=device_object.device_id).first()
+        device_object.delete()
+        user.delete()
+        return Response({"message":"Device successfully deleted."}, status=status.HTTP_200_OK)
+    else:
+        return Response({"message":"Device does not found!"}, status=status.HTTP_400_BAD_REQUEST)

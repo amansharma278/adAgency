@@ -61,3 +61,20 @@ def get_ad(request, ad_id):
     device = Ad.objects.get(id=ad_id)
     serializer = AdSerializer(device)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+def delete_ad(request, ad_id):
+    ads_object = Ad.objects.filter(id=ad_id).first()
+    # Ye jo ads id aayee hai usko Db ke ads id se match kerao
+    if ads_object:
+        ads_object.delete()
+        return Response({"message":"Ads successfully deleted."}, status=status.HTTP_200_OK)
+    else:
+        return Response({"message":"Ads not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+
+
+
