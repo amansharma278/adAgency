@@ -19,15 +19,16 @@ from users.models import User
 # Create your views here.
 @api_view(['POST'])
 def create_device(request):
+    logged_in_user = request.user
     find = Device.objects.filter(device_id=request.data['device_id']).first()
     if find:
         return Response({"message": "Device already exists"}, status=status.HTTP_400_BAD_REQUEST)
     serializer = DeviceSerializer(data=request.data)
     if serializer.is_valid():
         device = serializer.save()
-        user = User(username=device.device_id)
-        user.set_password(device.secret_key)
-        user.save()
+        device_user = User(username=device.device_id, organisation=logged_in_user.organisation, role="Device", device=device)
+        device_user.set_password(device.secret_key)
+        device_user.save()
         return Response({"message":"Successfully created Device","data":serializer.data}, status=status.HTTP_201_CREATED)
     else:
         return Response({"message":"Error while creating device","error":serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
@@ -46,7 +47,9 @@ def update_device(request, device_id):
 
 @api_view(['GET'])
 def get_devices(request):
-    devices = Device.objects.all()
+    user = request.user
+    device_ids = User.objects.filter(organisation=user.organisation, role='Device').values_list('device_id', flat=True)
+    devices = Device.objects.filter(id__in=device_ids).all()
     serializer = DeviceSerializer(devices, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -165,7 +168,7 @@ def delete_device(request, id):
     device_object = Device.objects.filter(id=id).first()
 
     if device_object:
-        user = User.objects.filter(username=device_object.device_id).first()
+        user = User.objects.filter(device=device_object).first()
         device_object.delete()
         user.delete()
         return Response({"message":"Device successfully deleted."}, status=status.HTTP_200_OK)

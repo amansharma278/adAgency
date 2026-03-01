@@ -7,6 +7,7 @@ from tinytag import TinyTag
 
 from ads.models import AdVideo, Ad
 from ads.serializers import AdVideoSerializer, AdSerializer
+from devices.models import Device
 
 
 # Create your views here.
@@ -73,7 +74,15 @@ def delete_ad(request, ad_id):
     else:
         return Response({"message":"Ads not found."}, status=status.HTTP_404_NOT_FOUND)
 
-
+@api_view(['POST'])
+def assign_ad_to_ids(request, ad_id):
+    ad = Ad.objects.get(id=ad_id)
+    device_ids = request.data['device_ids']
+    devices = Device.objects.filter(id__in=device_ids).all()
+    for device in devices:
+        device.assigned_ads.add(ad)
+        device.save()
+    return Response({"message":"Ad is assigned to devices."}, status=status.HTTP_200_OK)
 
 
 

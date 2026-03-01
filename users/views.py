@@ -6,9 +6,11 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from ads.models import Ad
+from devices.models import Device
 from users.auth import is_admin
-from users.models import User
-from users.serializer import UserSerializer
+from users.models import User, AdGroup
+from users.serializer import UserSerializer, AdGroupSerializer
 
 
 # Create your views here.
@@ -47,33 +49,33 @@ def get_profile(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@login_required
 @api_view(['POST'])
 def create_group(request):
     user = request.user
-    group_name = request.data.get('group_name')
+    group_name = request.data.get('name')
+    device_ids = request.data.get('device_ids')
+    devices = Device.objects.filter(id__in=device_ids)
     if not group_name:
         return Response({"error": "Group name is required"}, status=status.HTTP_400_BAD_REQUEST)
-    if user.role != "ADMIN":
+    if user.role != "Admin":
         return Response({"error": "Insufficient Permission"}, status=status.HTTP_403_FORBIDDEN)
 
-    Group.objects.create(name=f"{user.organisation}_{group_name}", created_by=request.user)
+    ad_group = AdGroup.objects.create(name=group_name, created_by=request.user)
+    ad_group.devices.add(*devices)
 
     return Response({"message": f"Group '{group_name}' created successfully"}, status=status.HTTP_201_CREATED)
 
 
-@user_passes_test(is_admin)
-@login_required
 @api_view(['GET'])
 def get_groups(request):
     user = request.user
 
-    groups = Group.objects.filter(name__startswith=f"{user.organisation}_")
-    return Response({"groups": groups}, status=status.HTTP_200_OK)
+    ad_groups = AdGroup.objects.filter(created_by=user).all()
+    serializer = AdGroupSerializer(ad_groups, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@user_passes_test(is_admin)
-@login_required
+
 @api_view(['POST'])
 def add_user_to_group(request):
     user = request.user
@@ -84,12 +86,37 @@ def add_user_to_group(request):
         return Response({"error": "Group id is required!"}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        group = Group.objects.get(id=group_id, name__startswith=f"{user.organisation}_")
-        user_to_add = User.objects.get(id__in=user_ids, organisation=user.organisation, role="DEVICE")
-        group.user_set.add(user_to_add)
-        return Response({"message": f"Users added to group '{group.name}' successfully"},
+        ad_group = AdGroup.objects.get(id=group_id, created_by=user)
+        user_to_add = User.objects.get(id__in=user_ids, role="DEVICE")
+        ad_group.members.add(user_to_add)
+        return Response({"message": f"Users added to group '{ad_group.name}' successfully"},
                         status=status.HTTP_200_OK)
     except Group.DoesNotExist:
         return Response({"error": "Group not found"}, status=status.HTTP_404_NOT_FOUND)
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['DELETE'])
+def delete_group(request, group_id):
+    group = AdGroup.objects.get(id=group_id)
+    if not group:
+        return Response({"error": "Group not found"}, status=status.HTTP_404_NOT_FOUND)
+    group.delete()
+    return Response({"message": f"Group deleted successfully"})
+
+@api_view(['POST'])
+def assign_ad_to_group(request, group_id):
+    ad_group = AdGroup.objects.get(id=group_id)
+    if ad_group:
+        ad_ids = request.data.get('ad_ids')
+        if ad_ids:
+            ads = Ad.objects.filter(id__in=ad_ids).all()
+            for device in ad_group.devices.all():
+                device.assigned_ads.add(*ads)
+                device.save()
+            return Response({"message":"Ads are assigned to group."}, status=status.HTTP_200_OK)
+        else:
+            return Response({"message": "Ads is/are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    else:
+        return Response({"message": "Not a valid Group"}, status=status.HTTP_400_BAD_REQUEST)

@@ -11,3 +11,6 @@ class Device(models.Model):
     is_online = models.BooleanField(default=False)
     last_active = models.DateTimeField(null=True, blank=True)
     assigned_ads = models.ManyToManyField('ads.Ad', blank=True)
+
+    def __str__(self):
+        return self.device_name

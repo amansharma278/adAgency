@@ -1,6 +1,6 @@
 from django.urls import path
 
-from ads.views import upload_video, create_ad, update_ad, get_ad, get_ads, delete_ad
+from ads.views import upload_video, create_ad, update_ad, get_ad, get_ads, delete_ad, assign_ad_to_ids
 
 urlpatterns = [
     path('video/upload/', upload_video),
@@ -9,4 +9,5 @@ urlpatterns = [
     path('delete/<int:ad_id>/', delete_ad),
     path('', get_ads),
     path('<int:ad_id>/', get_ad),
+    path('<int:ad_id>/assign-devices/', assign_ad_to_ids),
 ]
