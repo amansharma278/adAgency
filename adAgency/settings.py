@@ -31,7 +31,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['192.168.1.7', 'localhost']
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5174",
 ]
 
 # Application definition

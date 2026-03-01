@@ -10,3 +10,6 @@ class User(AbstractUser):
         ("DEVICE", "Device"),
     )
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    organisation = models.CharField(max_length=255, blank=True, null=True)
+    access_valid_until = models.DateTimeField(blank=True, null=True)
+    access_renewal_date = models.DateTimeField(blank=True, null=True)
