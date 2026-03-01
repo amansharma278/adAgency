@@ -10,7 +10,7 @@ class Device(models.Model):
     location = models.CharField(max_length=255)
     is_online = models.BooleanField(default=False)
     last_active = models.DateTimeField(null=True, blank=True)
-    assigned_ads = models.ManyToManyField('ads.Ad', blank=True)
+    assigned_ads = models.ManyToManyField('ads.Ad', blank=True, related_name="devices")
 
     def __str__(self):
         return self.device_name

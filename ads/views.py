@@ -52,8 +52,8 @@ def update_ad(request, ad_id):
 
 @api_view(['GET'])
 def get_ads(request):
-    devices = Ad.objects.all()
-    serializer = AdSerializer(devices, many=True)
+    ads = Ad.objects.all()
+    serializer = AdSerializer(ads, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
