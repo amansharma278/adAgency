@@ -19,15 +19,18 @@ from users.models import User
 # Create your views here.
 @api_view(['POST'])
 def create_device(request):
+    find = Device.objects.filter(device_id=request.data['device_id']).first()
+    if find:
+        return Response({"message": "Device already exists"}, status=status.HTTP_400_BAD_REQUEST)
     serializer = DeviceSerializer(data=request.data)
     if serializer.is_valid():
         device = serializer.save()
         user = User(username=device.device_id)
         user.set_password(device.secret_key)
         user.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({"message":"Successfully created Device","data":serializer.data}, status=status.HTTP_201_CREATED)
     else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message":"Error while creating device","error":serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PUT'])
